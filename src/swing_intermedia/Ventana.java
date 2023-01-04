@@ -1,7 +1,9 @@
 package swing_intermedia;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
+import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -16,8 +18,10 @@ import java.io.Flushable;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Scanner;
 
+import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
@@ -26,6 +30,7 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingWorker;
 
 public class Ventana extends JFrame implements ActionListener {
 	// Declaracion variables
@@ -43,11 +48,17 @@ public class Ventana extends JFrame implements ActionListener {
 	private JMenuItem rehacer;
 	private JMenuItem ayuda;
 	private JOptionPane mssg;
-	private Historial desre;
+	private Boton inicio;
+	private Boton fin;
 
 	private int[][] matriz;
 
 	private Historial historial;
+	private HistorialJuego historialJuego;
+
+	private boolean jugando;
+
+	private String[][] mj;
 
 	String ruta = "";
 
@@ -63,12 +74,16 @@ public class Ventana extends JFrame implements ActionListener {
 		guardarComo = new JMenuItem("Guardar Como");
 		guardarComo.addActionListener(this);
 		jugar = new JMenuItem("Jugar");
+		jugar.addActionListener(this);
 		deshacer = new JMenuItem("Deshacer");
 		deshacer.addActionListener(this);
 		rehacer = new JMenuItem("Rehacer");
+		rehacer.addActionListener(this);
 		ayuda = new JMenuItem("Ayuda");
+		ayuda.addActionListener(this);
 
 		historial = new Historial();
+		historialJuego = new HistorialJuego();
 		// Añado menus a la barra menu
 		this.menuSol = anhadirAlMenu(abrir, crear, guardar, guardarComo);
 		menuSol.setText("Opciones");
@@ -78,9 +93,9 @@ public class Ventana extends JFrame implements ActionListener {
 
 		// Doy valores y ajusto tamaño de la ventana
 		this.setLayout(new BorderLayout());
-		this.setTitle("Titulo");
+		this.setTitle("Editar");
 		this.setSize(1080, 720);
-		this.add(panel, BorderLayout.NORTH);
+		this.add(panel, BorderLayout.CENTER);
 		this.setJMenuBar(barra);
 
 		// Cerrar proceso al salir
@@ -91,6 +106,9 @@ public class Ventana extends JFrame implements ActionListener {
 	public void actionPerformed(ActionEvent i) {
 		// TODO Auto-generated method stub
 		if (i.getSource() == crear) {
+			ruta = "";
+			historial = new Historial();
+			jugando = false;
 			crearOption(Integer.parseInt(mssg.showInputDialog("Introduce el tamaño de las filas.")),
 					Integer.parseInt(mssg.showInputDialog("Introduce el tamaño de las columnas.")));
 		} else if (i.getSource() == guardar) {
@@ -99,15 +117,93 @@ public class Ventana extends JFrame implements ActionListener {
 			guardarComo();
 		} else if (i.getSource() == abrir) {
 			try {
+				jugando= false;
+				historial = new Historial();
 				abrir();
 			} catch (Exception e) {
 				// Cambiar por JOptionPane
 				e.printStackTrace();
 			}
 		} else if (i.getSource() == deshacer) {
-			historial.deshacer();
+			if (jugando) {
+				historialJuego.deshacer();
+			} else {
+				historial.deshacer();
+			}
+		} else if (i.getSource() == rehacer) {
+			if (jugando) {
+				historialJuego.rehacer();
+			} else {
+				historial.rehacer();
+			}
+		} else if (i.getSource() == jugar) {
+			jugando = true;
+			jugar();
+		}else if(i.getSource() == ayuda) {
+			ayuda();
 		}
 
+	}
+
+	private void ayuda() {
+		// TODO Auto-generated method stub
+		SwingWorker<String, Void> worker = new SwingWorker<String, Void>(){
+
+			@Override
+			protected String doInBackground() throws Exception {
+				// TODO Auto-generated method stub
+				ArrayList<ArrayList<Integer>> x = new ArrayList<>();
+				for (int i = 0; i < matriz.length; i++) {
+					ArrayList<Integer> aux = new ArrayList<>(); 
+					for (int j = 0; j < matriz[0].length; j++) {
+						aux.add(matriz[i][j]);
+					}
+					x.add(aux);
+				}
+				
+				Camino camino = new Camino(x, x.get(0).size(), x.size());
+				ArrayList<ArrayList<Integer>> caminoAux = new ArrayList<ArrayList<Integer>>();
+				ArrayList<Integer> coord = new ArrayList<Integer>();
+				String[][] matrizImprime = new String[( x.size() * 2) - 1][( x.get(0).size() * 2) - 1];
+				int line = 0;
+				int col = 0;
+				for (int u = 0; u <  x.size() * 2 - 1; u++) {
+					for (int v = 0; v <  x.get(0).size() * 2 - 1; v++) {
+						if (v % 2 != 0 || u % 2 != 0) {
+							matrizImprime[u][v] = " ";
+						} else {
+							matrizImprime[u][v] = camino.getMatriz().get(line).get(col).toString();
+							col++;
+						}
+					}
+					col = 0;
+					if (!matrizImprime[u][0].equals(" "))
+						line++;
+				}
+				camino.buscaCamino(caminoAux, x.get(0).get(0), coord, 0, 0, matrizImprime, 0, camino.getCaminoRec());
+
+				String[][] firstSol= camino.getSolution(0);
+				if(firstSol == null) {
+					JOptionPane.showMessageDialog(null, "No hay solución");
+					
+				}else {
+					
+					
+					mj = firstSol;
+					for (int i = 0; i < mj.length; i++) {
+						for (int j = 0; j < mj[0].length; j++) {
+							if(mj[i][j].equals("") || mj[i][j].equals(" ")) {
+								mj[i][j] = null;
+							}
+						}
+					}
+					cargarPanelJuego();
+				}
+				return null;
+			}
+			
+		};
+		worker.execute();
 	}
 
 	public void crearPanel() {
@@ -146,6 +242,8 @@ public class Ventana extends JFrame implements ActionListener {
 		for (int i = 0; i < matriz.length; i++) {
 			for (int j = 0; j < matriz[0].length; j++) {
 				JTextField txt = new JTextField();
+				txt.setHorizontalAlignment(JTextField.CENTER);
+
 				focus(i, j, txt);
 				panel.add(txt);
 			}
@@ -158,6 +256,7 @@ public class Ventana extends JFrame implements ActionListener {
 	private void focus(int i, int j, JTextField txt) {
 		txt.addFocusListener(new FocusAdapter() {
 			private String state;
+
 			public void focusLost(FocusEvent event) {
 				try {
 					matriz[i][j] = Integer.parseInt(txt.getText());
@@ -173,25 +272,26 @@ public class Ventana extends JFrame implements ActionListener {
 					}
 				}
 				int[][] matrizAux = new int[matriz.length][matriz[0].length];
-				if(!state.equals(txt.getText())){
-					//CLONAR
-						getMatriz(matrizAux);
-						//Si state = "" matriz[i][j] = 0, si no es state
-						if(state.equals("")) {
-							matrizAux[i][j] = 0;
-						}else {
-							matrizAux[i][j] = Integer.parseInt(state);
-						}
-					
-						historial.add(matrizAux);
+				if (!state.equals(txt.getText())) {
+					// CLONAR
+					getMatriz(matrizAux);
+					// Si state = "" matriz[i][j] = 0, si no es state
+					if (state.equals("")) {
+						matrizAux[i][j] = 0;
+					} else {
+						matrizAux[i][j] = Integer.parseInt(state);
 					}
+
+					historial.add(matrizAux);
+				}
 			}
+
 			@Override
 			public void focusGained(FocusEvent event) {
 				state = txt.getText();
 
 			}
-		
+
 		});
 	}
 
@@ -324,6 +424,8 @@ public class Ventana extends JFrame implements ActionListener {
 		for (int i = 0; i < matriz.length; i++) {
 			for (int j = 0; j < matriz[0].length; j++) {
 				JTextField txt = new JTextField();
+				txt.setHorizontalAlignment(JTextField.CENTER);
+
 				// Add el contenido de la matriz al JTextField
 				if (matriz[i][j] != 0) {
 					txt.setText("" + matriz[i][j]);
@@ -337,35 +439,248 @@ public class Ventana extends JFrame implements ActionListener {
 		setVisible(true);
 	}
 
+	public void jugar() {
+		int filas = matriz.length * 2 - 1;
+		int columnas = matriz[0].length * 2 - 1;
+		this.mj = new String[filas][columnas];
+		for (int i = 0; i < mj.length; i += 2) {
+			for (int j = 0; j < mj[0].length; j += 2) {
+				this.mj[i][j] = "" + this.matriz[i / 2][j / 2];
+			}
+		}
+		cargarPanelJuego();
+	}
+
+	public void cargarPanelJuego() {
+		panel.removeAll();
+		panel.setLayout(new GridLayout(mj.length, mj[0].length));
+		for (int i = 0; i < mj.length; i++) {
+			for (int j = 0; j < mj[0].length; j++) {
+				if (i % 2 == 0 && j % 2 == 0) {
+					Boton boton = new Boton(mj[i][j], i, j);
+					panel.add(boton);
+				} else {
+					JTextField k = new JTextField();
+					k.setEditable(false);
+					k.setHorizontalAlignment(JTextField.CENTER);
+					k.setFont(new Font("Agency FB", Font.BOLD, 40));
+					if (mj[i][j] != null ) {
+						k.setBackground(new Color(139,231,142));
+						k.setText(mj[i][j]);
+					}
+					panel.add(k);
+				}
+			}
+		}
+		this.setVisible(true);
+	}
+
+	public int calculaMax() {
+		int max = 0;
+		for(int i = 0; i < matriz.length; i++) {
+			for(int j = 0; j < matriz[0].length; j++) {
+				if(matriz[i][j] > max)
+					max = matriz[i][j];
+			}
+		}
+		return max;
+	}
+	
+	public int calculaMin() {
+		int min = matriz[0][0];
+		for(int i = 0; i < matriz.length; i++) {
+			for(int j = 1; j < matriz[0].length; j++) {
+				if(matriz[i][j] < min)
+					min = matriz[i][j];
+			}
+		}
+		return min;
+	}
 	class Historial {
 
 		private ArrayList<int[][]> historial;
 		private int contDes;
-		
+
 		public Historial() {
 			this.historial = new ArrayList<>();
-			this.contDes= 0;
+			this.contDes = 0;
 		}
-		
-		public void add(int[][]matriz) {
+
+		public void add(int[][] matriz) {
 			historial.add(matriz);
 			contDes++;
 		}
-		
-		
+
 		public void deshacer() {
+			comprobarMatriz();
 			contDes--;
-			if (contDes >= 0)
-				verAbrir(historial.get(contDes));
-			else contDes = 0; //Falta mensaje 
+			if (contDes >= 0) {
+				matriz = this.historial.get(contDes);
+				verAbrir(this.historial.get(contDes));
+			} else
+				contDes = 0; // Falta mensaje
 		}
 
 		public void rehacer() {
 			contDes++;
-			if (contDes < historial.size())
+			if (contDes < this.historial.size()) {
+				matriz = this.historial.get(contDes);
 				verAbrir(historial.get(contDes));
-			else contDes--; //Falta mensaje 
+			} else
+				contDes--; // Falta mensaje
+		}
+		
+		public void comprobarMatriz() {
+			int pos = this.contDes;
+			if(this.historial.size() == pos){
+				pos--;
+			}
+			for(int i = 0; i < matriz.length; i++) {
+				for(int j = 0; j < matriz[0].length; j++) {
+					if(matriz[i][j] != this.historial.get(pos)[i][j]) {
+						this.historial.add(matriz);
+						break;
+					}
+				}
+			}
 		}
 	}
 
+	class HistorialJuego {
+
+		private ArrayList<String[][]> historial;
+		private int contDes;
+
+		public HistorialJuego() {
+			this.historial = new ArrayList<>();
+			this.contDes = 0;
+		}
+
+		public void add(String[][] matriz) {
+			String[][] m = new String[matriz.length][matriz[0].length];
+			for(int i = 0; i < m.length; i++) {
+				for(int j=0; j < m[0].length; j++) {
+					m[i][j] = matriz[i][j];
+				}
+			}
+			this.historial.add(m);
+			contDes++;
+		}
+
+		public void deshacer() {
+			comprobarMatriz();
+			contDes--;
+			if (contDes >= 0) {
+				mj = this.historial.get(contDes);
+				cargarPanelJuego();
+			} else
+				contDes = 0; // Falta mensaje
+		}
+
+		public void rehacer() {
+			contDes++;
+			if (contDes < this.historial.size()) {
+				mj = this.historial.get(contDes);
+				cargarPanelJuego();
+			} else
+				contDes--; // Falta mensaje
+		}
+		
+		public void comprobarMatriz() {
+			int pos = this.contDes;
+			if(this.historial.size() == pos){
+				pos--;
+			}
+			for(int i = 0; i < mj.length; i++) {
+				for(int j = 0; j < mj[0].length; j++) {
+					if(!Objects.equals(mj[i][j],this.historial.get(pos)[i][j])) {
+						//Clonar Matriz
+						this.historial.add(mj);
+						break;
+					}
+				}
+			}
+		}
+	}
+
+	class Boton extends JButton implements ActionListener {
+
+		private int fila;
+		private int columna;
+
+		public Boton(String string, int i, int j) {
+			// TODO Auto-generated constructor stub
+			this.setText(string);
+			this.fila = i;
+			this.columna = j;
+			this.addActionListener(this);
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			if(inicio == null) {
+				inicio = this;
+			}else {
+				fin = this;
+				comprobarMov();
+			}
+
+		}
+		
+		public void comprobarMov() {
+			//DiagonalSupIzq
+			if(moverse(-2,-2, '\\') == true) {
+				//Copiar y guardarla
+				historialJuego.add(mj);
+				mj[inicio.fila-1][inicio.columna-1] = "\\";
+			}//Subir
+			else if(moverse(-2,0, '|') == true) {
+				historialJuego.add(mj);
+				mj[inicio.fila-1][inicio.columna] = "|";
+			}//DiagonalSupDer
+			else if(moverse(-2,+2, '/') == true) {
+				historialJuego.add(mj);
+				mj[inicio.fila-1][inicio.columna+1] = "/";
+			}//Izquierda
+			else if(moverse(0,-2, '-') == true) {
+				historialJuego.add(mj);
+				mj[inicio.fila][inicio.columna-1] = "-";
+			}//Derecha
+			else if(moverse(0,+2, '-') == true) {
+				historialJuego.add(mj);
+				mj[inicio.fila][inicio.columna+1] = "-";
+			}//DiagonalInfIzq
+			else if(moverse(+2,-2, '/') == true) {
+				historialJuego.add(mj);
+				mj[inicio.fila+1][inicio.columna-1] = "/";
+			}//Bajar
+			else if(moverse(+2,0, '|') == true) {
+				historialJuego.add(mj);
+				mj[inicio.fila+1][inicio.columna] = "|";
+			}//DiagonalInfDer
+			else if(moverse(+2,+2, '\\') == true) {
+				historialJuego.add(mj);
+				mj[inicio.fila+1][inicio.columna+1] = "\\";
+			}else {
+				mssg.showMessageDialog(null,"Movimiento Invalido");
+			}
+			inicio = null;
+			fin = null;
+			cargarPanelJuego();
+		}
+		
+		public boolean moverse(int movFila, int movCol, char mov) {
+			//Recorrer movimientos
+			if(inicio.fila + movFila == fin.fila && inicio.columna + movCol == fin.columna) {
+				if(mj[inicio.fila + movFila/2][inicio.columna + movCol/2] == null) {
+					if(Integer.parseInt(mj[inicio.fila][inicio.columna]) + 1 == Integer.parseInt(mj[fin.fila][fin.columna])) {
+						return true;
+					}else if(Integer.parseInt(mj[inicio.fila][inicio.columna]) == calculaMax() && Integer.parseInt(mj[fin.fila][fin.columna]) == calculaMin()) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+	}
 }
